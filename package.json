@@ -1,0 +1,23 @@
+{
+  "name": "senior-benefits-app",
+  "version": "1.0.0",
+  "description": "Web application suggesting health and social benefits for Canadian senior citizens",
+  "main": "backend/dist/index.js",
+  "scripts": {
+    "backend:install": "cd backend && npm install",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:build": "cd backend && npm run build",
+    "backend:start": "cd backend && npm start",
+    "backend:test": "cd backend && npm test",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:dev": "cd frontend && npm start",
+    "frontend:build": "cd frontend && npm run build",
+    "db:migrate": "cd backend && npm run migrate",
+    "db:seed": "cd backend && npm run seed",
+    "install-all": "npm install && npm run backend:install && npm run frontend:install",
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}

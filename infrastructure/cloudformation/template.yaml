@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Senior Benefits Application'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+  DBName:
+    Type: String
+    Default: seniors_db
+  DBUsername:
+    Type: String
+    NoEcho: true
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+  # RDS PostgreSQL Database
+  SeniorBenefitsDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: senior-benefits-db
+      Engine: postgres
+      EngineVersion: '14.7'
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: '20'
+      StorageType: gp2
+      DBName: !Ref DBName
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      PubliclyAccessible: true
+      Port: 5432
+      MultiAZ: false
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # S3 Bucket for frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'senior-benefits-frontend-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  # S3 Bucket Policy
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyText:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: RDSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'rds-db:connect'
+                Resource: '*'
+
+  # API Gateway
+  SeniorBenefitsAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: senior-benefits-api
+      Description: API for Senior Benefits Application
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+Outputs:
+  DBEndpoint:
+    Description: RDS Database Endpoint
+    Value: !GetAtt SeniorBenefitsDB.Endpoint.Address
+  FrontendBucketName:
+    Description: S3 Bucket for Frontend
+    Value: !Ref FrontendBucket
+  APIEndpoint:
+    Description: API Gateway Endpoint
+    Value: !Sub 'https://${SeniorBenefitsAPI}.execute-api.${AWS::Region}.amazonaws.com/prod'
