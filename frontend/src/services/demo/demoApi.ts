@@ -231,7 +231,7 @@ export async function naturalLanguageQuery(token: string | null, query: string):
   const assumptions: string[] = [];
   const province = parsed.province ?? saved?.province ?? '';
   if (!province)
-    assumptions.push('we only included programs available across Canada because no province was mentioned');
+    assumptions.push('we left out provincial programs because no province was mentioned');
   const residency = (parsed.residencyStatus as UserProfile['residency_status'] | null) ?? saved?.residency_status;
   if (!residency) assumptions.push('we assumed you are a Canadian citizen');
   const income = (parsed.incomeLevel as UserProfile['income_range'] | null) ?? saved?.income_range;

@@ -29,7 +29,11 @@ export function evaluateBenefit(benefit: DemoBenefit, profile: MatchableProfile)
 
   if (benefit.minimum_age !== undefined && profile.age < benefit.minimum_age) return null;
   if (benefit.maximum_age !== undefined && profile.age > benefit.maximum_age) return null;
-  if (benefit.provinces && !benefit.provinces.includes(province)) return null;
+  // With no province known (e.g. a question that doesn't name one), keep programs offered in
+  // most of Canada such as the CPP, and only drop those limited to a single province
+  if (benefit.provinces && (province ? !benefit.provinces.includes(province) : benefit.provinces.length === 1)) {
+    return null;
+  }
   if (benefit.residency && !benefit.residency.includes(profile.residency_status)) return null;
   if (benefit.income_ranges && !benefit.income_ranges.includes(profile.income_range)) return null;
   if (benefit.requires_condition && conditions.length === 0) return null;
@@ -49,7 +53,7 @@ export function evaluateBenefit(benefit: DemoBenefit, profile: MatchableProfile)
     score += CRITERION_POINTS;
     reasons.push(`Available to residents of ${provinceName(province)}`);
   } else if (benefit.provinces) {
-    reasons.push(`Available in ${provinceName(province)}`);
+    reasons.push(province ? `Available in ${provinceName(province)}` : 'Available in most of Canada');
   } else {
     reasons.push('Available across Canada');
   }
