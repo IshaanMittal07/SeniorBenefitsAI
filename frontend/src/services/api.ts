@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { UserProfile, AuthResponse, RecommendationResponse, Benefit, User } from '../types';
+import { UserProfile, AuthResponse, RecommendationResponse, Benefit, User, NaturalLanguageResponse } from '../types';
 
 class APIClient {
   private client: AxiosInstance;
@@ -111,7 +111,9 @@ class APIClient {
   }
 
   // Profile endpoints
-  async createProfile(profile: Omit<UserProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<UserProfile> {
+  async createProfile(
+    profile: Omit<UserProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>,
+  ): Promise<UserProfile> {
     const response = await this.client.post<UserProfile>('/profiles', profile);
     return response.data;
   }
@@ -137,8 +139,8 @@ class APIClient {
     return response.data.benefits;
   }
 
-  async naturalLanguageQuery(query: string): Promise<any> {
-    const response = await this.client.post('/recommendations/natural-language', { query });
+  async naturalLanguageQuery(query: string): Promise<NaturalLanguageResponse> {
+    const response = await this.client.post<NaturalLanguageResponse>('/recommendations/natural-language', { query });
     return response.data;
   }
 

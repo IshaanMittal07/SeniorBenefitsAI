@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { INCOME_OPTIONS, RESIDENCY_OPTIONS, provinceName } from '../constants/profileOptions';
+import { NaturalLanguageResponse, ParsedQueryProfile } from '../types';
 import { Alert } from './ui/Alert';
 import { PageHeader } from './ui/PageHeader';
 import { Spinner } from './ui/Spinner';
@@ -15,15 +19,33 @@ const MAX_LENGTH = 500;
 // Warn screen reader users once they are close to the limit, without announcing every keystroke
 const LIMIT_WARNING_AT = MAX_LENGTH - 50;
 
+/**
+ * Turn the details extracted from the question into readable labels
+ */
+const describeParsedProfile = (parsed: ParsedQueryProfile | undefined): string[] => {
+  if (!parsed) return [];
+  const details: string[] = [];
+  if (parsed.age) details.push(`Age ${parsed.age}`);
+  if (parsed.province) details.push(provinceName(parsed.province));
+  const residency = RESIDENCY_OPTIONS.find((option) => option.value === parsed.residencyStatus);
+  if (residency) details.push(residency.label);
+  const income = INCOME_OPTIONS.find((option) => option.value === parsed.incomeLevel);
+  if (income) details.push(`Income ${income.label.toLowerCase()}`);
+  (parsed.medicalConditions || []).forEach((condition) => details.push(condition));
+  return details;
+};
+
 export const NaturalLanguageQuery: React.FC = () => {
   const [query, setQuery] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const { isAuthenticated } = useAuth();
+  const [result, setResult] = useState<NaturalLanguageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setResult(null);
     setLoading(true);
 
     try {
@@ -100,6 +122,18 @@ export const NaturalLanguageQuery: React.FC = () => {
         {!loading && result?.recommendations && (
           <section className="card p-6 sm:p-8">
             <h2 className="text-2xl">Our suggestions</h2>
+            {describeParsedProfile(result.parsed_profile).length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-bold text-ink-muted">Here’s what we understood:</p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {describeParsedProfile(result.parsed_profile).map((detail) => (
+                    <li key={detail} className="rounded-full bg-brand-50 px-3 py-1 text-sm font-bold text-brand-800">
+                      {detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {result.recommendations.explanation && (
               <p className="mt-3 text-lg text-ink-muted">{result.recommendations.explanation}</p>
             )}
@@ -133,6 +167,26 @@ export const NaturalLanguageQuery: React.FC = () => {
                 </ol>
               </div>
             )}
+
+            <div className="mt-8 rounded-xl bg-slate-50 px-5 py-4">
+              {isAuthenticated ? (
+                <p>
+                  For a detailed, ranked list with application links,{' '}
+                  <Link to="/recommendations" className="link">
+                    see my benefits
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <p>
+                  Want a detailed list with application links and phone numbers?{' '}
+                  <Link to="/login?mode=signup" className="link">
+                    Create a free account
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
           </section>
         )}
       </div>
