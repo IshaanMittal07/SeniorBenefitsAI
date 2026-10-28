@@ -8,15 +8,20 @@ import { Spinner } from './ui/Spinner';
 import { CheckIcon, ExternalLinkIcon, PhoneIcon } from './ui/Icons';
 
 const matchLevel = (score: number) => {
-  if (score >= 80) return { label: 'Strong match', bar: 'bg-emerald-600', text: 'text-emerald-800', bg: 'bg-emerald-50' };
+  if (score >= 80)
+    return { label: 'Strong match', bar: 'bg-emerald-600', text: 'text-emerald-800', bg: 'bg-emerald-50' };
   if (score >= 55) return { label: 'Good match', bar: 'bg-brand-600', text: 'text-brand-800', bg: 'bg-brand-50' };
   return { label: 'Worth checking', bar: 'bg-amber-500', text: 'text-amber-900', bg: 'bg-amber-50' };
 };
 
-// North American numbers: add the country code when only 10 digits are given
+// North American numbers: add the country code when only 10 digits are given.
+// Anything after "ext"/"x" is an extension and must not be dialled as part of the number.
 const telHref = (phone: string) => {
-  const digits = phone.replace(/\D/g, '');
-  return `tel:+${digits.length === 10 ? `1${digits}` : digits}`;
+  const [main, extension] = phone.split(/\s*(?:ext\.?|extension|x)\s*/i);
+  const digits = main.replace(/\D/g, '');
+  const number = digits.length === 10 ? `1${digits}` : digits;
+  const extDigits = extension?.replace(/\D/g, '');
+  return `tel:+${number}${extDigits ? `;ext=${extDigits}` : ''}`;
 };
 
 const MatchMeter: React.FC<{ score: number }> = ({ score }) => {
@@ -66,20 +71,23 @@ const BenefitCard: React.FC<{ rec: Recommendation }> = ({ rec }) => (
     )}
 
     {(rec.application_url || rec.phone_number) && (
-      <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-6 py-4 sm:flex-row sm:px-7 print:hidden">
+      <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-6 py-4 sm:flex-row sm:px-7 print:border-0 print:bg-transparent print:py-2">
         {rec.application_url && (
-          <a href={rec.application_url} target="_blank" rel="noopener noreferrer" className="btn-primary">
+          <a href={rec.application_url} target="_blank" rel="noopener noreferrer" className="btn-primary print:hidden">
             Learn more and apply
             <ExternalLinkIcon size={18} />
             <span className="sr-only">(opens in a new tab)</span>
           </a>
         )}
         {rec.phone_number && (
-          <a href={telHref(rec.phone_number)} className="btn-secondary">
+          <a href={telHref(rec.phone_number)} className="btn-secondary print:hidden">
             <PhoneIcon size={18} />
             Call {rec.phone_number}
           </a>
         )}
+        {/* Printed lists keep the contact details as plain text */}
+        {rec.application_url && <p className="hidden break-all print:block">Website: {rec.application_url}</p>}
+        {rec.phone_number && <p className="hidden print:block">Phone: {rec.phone_number}</p>}
       </div>
     )}
   </article>
@@ -121,13 +129,15 @@ export const Recommendations: React.FC = () => {
         eyebrow="Your results"
         title="Benefits you may qualify for"
         description={
-          <>
-            Based on your profile, we found{' '}
-            <strong className="text-ink">
-              {total} {total === 1 ? 'program' : 'programs'}
-            </strong>{' '}
-            worth looking into.
-          </>
+          recommendations ? (
+            <>
+              Based on your profile, we found{' '}
+              <strong className="text-ink">
+                {total} {total === 1 ? 'program' : 'programs'}
+              </strong>{' '}
+              worth looking into.
+            </>
+          ) : undefined
         }
         actions={
           <Link to="/profile" className="btn-secondary print:hidden">
