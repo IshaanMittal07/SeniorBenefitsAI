@@ -61,7 +61,8 @@ async function hashPassword(email: string, password: string): Promise<string> {
     const digest = await window.crypto.subtle.digest('SHA-256', data);
     return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
-  return `plain:${password}`;
+  // Never fall back to storing the password itself
+  throw demoError(500, 'This demo needs a secure (https) connection to create an account or sign in.');
 }
 
 const publicUser = ({ passwordHash, ...user }: DemoUser): User => user;

@@ -130,8 +130,8 @@ const NavBar: React.FC = () => {
 
 const DemoBanner: React.FC = () => (
   <div className="bg-accent-100 text-accent-700 print:hidden">
-    <p className="container-page flex items-start gap-2 py-2 text-sm font-bold sm:items-center">
-      <InfoIcon size={18} className="mt-0.5 shrink-0 sm:mt-0" />
+    <p className="container-page flex items-start gap-2 py-2 text-base font-bold sm:items-center">
+      <InfoIcon size={20} className="mt-1 shrink-0 sm:mt-0" />
       Demo version: your account and answers are saved only in this browser and never sent to a server.
     </p>
   </div>
