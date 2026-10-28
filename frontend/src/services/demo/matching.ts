@@ -48,8 +48,10 @@ export function evaluateBenefit(benefit: DemoBenefit, profile: MatchableProfile)
   if (benefit.provinces && benefit.provinces.length === 1) {
     score += CRITERION_POINTS;
     reasons.push(`Available to residents of ${provinceName(province)}`);
-  } else {
+  } else if (benefit.provinces) {
     reasons.push(`Available in ${provinceName(province)}`);
+  } else {
+    reasons.push('Available across Canada');
   }
 
   if (benefit.residency) {

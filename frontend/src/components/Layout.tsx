@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { CloseIcon, HeartIcon, MenuIcon } from './ui/Icons';
+import { DEMO_MODE } from '../services/api';
+import { CloseIcon, HeartIcon, InfoIcon, MenuIcon } from './ui/Icons';
 
 const NAV_LINKS = [
   { to: '/profile', label: 'My Profile' },
@@ -127,6 +128,15 @@ const NavBar: React.FC = () => {
   );
 };
 
+const DemoBanner: React.FC = () => (
+  <div className="bg-accent-100 text-accent-700 print:hidden">
+    <p className="container-page flex items-start gap-2 py-2 text-sm font-bold sm:items-center">
+      <InfoIcon size={18} className="mt-0.5 shrink-0 sm:mt-0" />
+      Demo version: your account and answers are saved only in this browser and never sent to a server.
+    </p>
+  </div>
+);
+
 const Footer: React.FC = () => (
   <footer className="mt-16 border-t border-slate-200 bg-white print:hidden">
     <div className="container-page flex flex-col gap-4 py-8 text-ink-muted sm:flex-row sm:items-center sm:justify-between">
@@ -151,6 +161,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     >
       Skip to main content
     </a>
+    {DEMO_MODE && <DemoBanner />}
     <NavBar />
     <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
       {children}

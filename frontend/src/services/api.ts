@@ -1,5 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
 import { UserProfile, AuthResponse, RecommendationResponse, Benefit, User, NaturalLanguageResponse } from '../types';
+import * as demoApi from './demo/demoApi';
+import { DEMO_MODE } from './demo/demoApi';
+
+export { DEMO_MODE };
 
 class APIClient {
   private client: AxiosInstance;
@@ -83,30 +87,43 @@ class APIClient {
     delete this.client.defaults.headers.common['Authorization'];
   }
 
+  /**
+   * Run a demo-mode call, applying the same session-expiry handling as the HTTP client
+   */
+  private async demo<T>(call: () => Promise<T>): Promise<T> {
+    try {
+      return await call();
+    } catch (error: any) {
+      if (error.response?.status === 401 && this.token) {
+        this.clearSession();
+        this.sessionExpiredHandler?.();
+      }
+      throw error;
+    }
+  }
+
   // Auth endpoints
   async signup(email: string, password: string, firstName: string, lastName: string): Promise<AuthResponse> {
-    const response = await this.client.post<AuthResponse>('/auth/signup', {
-      email,
-      password,
-      firstName,
-      lastName,
-    });
-    this.saveSession(response.data);
-    return response.data;
+    const auth = DEMO_MODE
+      ? await demoApi.signup(email, password, firstName, lastName)
+      : (await this.client.post<AuthResponse>('/auth/signup', { email, password, firstName, lastName })).data;
+    this.saveSession(auth);
+    return auth;
   }
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const response = await this.client.post<AuthResponse>('/auth/login', {
-      email,
-      password,
-    });
-    this.saveSession(response.data);
-    return response.data;
+    const auth = DEMO_MODE
+      ? await demoApi.login(email, password)
+      : (await this.client.post<AuthResponse>('/auth/login', { email, password })).data;
+    this.saveSession(auth);
+    return auth;
   }
 
   async logout(): Promise<void> {
     try {
-      await this.client.post('/auth/logout');
+      if (!DEMO_MODE) {
+        await this.client.post('/auth/logout');
+      }
     } finally {
       this.clearSession();
     }
@@ -116,32 +133,38 @@ class APIClient {
   async createProfile(
     profile: Omit<UserProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>,
   ): Promise<UserProfile> {
+    if (DEMO_MODE) return this.demo(() => demoApi.createProfile(this.token, profile));
     const response = await this.client.post<UserProfile>('/profiles', profile);
     return response.data;
   }
 
   async getProfile(): Promise<UserProfile> {
+    if (DEMO_MODE) return this.demo(() => demoApi.getProfile(this.token));
     const response = await this.client.get<UserProfile>('/profiles');
     return response.data;
   }
 
   async updateProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+    if (DEMO_MODE) return this.demo(() => demoApi.updateProfile(this.token, profile));
     const response = await this.client.put<UserProfile>('/profiles', profile);
     return response.data;
   }
 
   // Recommendation endpoints
   async getRecommendations(): Promise<RecommendationResponse> {
+    if (DEMO_MODE) return this.demo(() => demoApi.getRecommendations(this.token));
     const response = await this.client.post<RecommendationResponse>('/recommendations', {});
     return response.data;
   }
 
   async getBenefits(): Promise<Benefit[]> {
+    if (DEMO_MODE) return demoApi.getBenefits();
     const response = await this.client.get<{ total: number; benefits: Benefit[] }>('/recommendations/benefits');
     return response.data.benefits;
   }
 
   async naturalLanguageQuery(query: string): Promise<NaturalLanguageResponse> {
+    if (DEMO_MODE) return demoApi.naturalLanguageQuery(this.token, query);
     const response = await this.client.post<NaturalLanguageResponse>('/recommendations/natural-language', { query });
     return response.data;
   }
