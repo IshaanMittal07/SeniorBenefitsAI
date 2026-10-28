@@ -21,12 +21,26 @@ interface LLMRecommendation {
 }
 
 export class LLMService {
-  private client: OpenAI;
+  private openai: OpenAI | null = null;
 
-  constructor() {
-    this.client = new OpenAI({
-      apiKey: llmConfig.apiKey,
-    });
+  /**
+   * Whether an OpenAI API key is configured
+   */
+  isConfigured(): boolean {
+    return !!llmConfig.apiKey;
+  }
+
+  /**
+   * Lazily create the OpenAI client so the API can start without a key
+   */
+  private get client(): OpenAI {
+    if (!this.openai) {
+      if (!this.isConfigured()) {
+        throw new Error('OPENAI_API_KEY is not configured');
+      }
+      this.openai = new OpenAI({ apiKey: llmConfig.apiKey });
+    }
+    return this.openai;
   }
 
   /**
