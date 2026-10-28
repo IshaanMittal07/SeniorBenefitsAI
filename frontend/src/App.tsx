@@ -2,7 +2,9 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import api from './services/api';
 import { Layout } from './components/Layout';
+import { Home } from './pages/Home';
 import { Login } from './pages/Login';
+import { NotFound } from './pages/NotFound';
 import { ProfileForm } from './components/ProfileForm';
 import { Recommendations } from './components/Recommendations';
 import { NaturalLanguageQuery } from './components/NaturalLanguageQuery';
@@ -19,6 +21,7 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <Layout>
         <Routes>
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route
             path="/profile"
@@ -44,7 +47,7 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/" element={<Login />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>
     </BrowserRouter>
