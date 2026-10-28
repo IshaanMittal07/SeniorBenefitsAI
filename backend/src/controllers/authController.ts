@@ -58,11 +58,13 @@ function toPublicUser(user: StoredUser) {
  */
 export async function signup(req: Request, res: Response): Promise<void> {
   try {
-    const { password, firstName, lastName } = req.body as SignupRequest;
+    const { password } = req.body as SignupRequest;
     const email = normalizeEmail(req.body?.email);
+    const firstName = typeof req.body?.firstName === 'string' ? req.body.firstName.trim() : '';
+    const lastName = typeof req.body?.lastName === 'string' ? req.body.lastName.trim() : '';
 
     // Validate input
-    if (!email || !password || !firstName?.trim() || !lastName?.trim()) {
+    if (!email || !password || !firstName || !lastName) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
@@ -82,12 +84,20 @@ export async function signup(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    // Re-check after the await: a concurrent signup for the same email may have finished first
+    if (users.has(email)) {
+      res.status(409).json({ error: 'An account with this email already exists' });
+      return;
+    }
+
     const user: StoredUser = {
       id: uuidv4(),
       email,
-      passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
+      passwordHash,
+      first_name: firstName,
+      last_name: lastName,
     };
 
     // Store user in memory
