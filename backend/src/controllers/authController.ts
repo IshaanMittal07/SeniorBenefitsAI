@@ -1,10 +1,23 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { authConfig } from '../config/auth';
 import { v4 as uuidv4 } from 'uuid';
 
-// Simple in-memory user storage for development
-const users: Map<string, any> = new Map();
+interface StoredUser {
+  id: string;
+  email: string;
+  passwordHash: string;
+  first_name: string;
+  last_name: string;
+}
+
+// Simple in-memory user storage for development, keyed by normalized email
+const users: Map<string, StoredUser> = new Map();
+
+const BCRYPT_ROUNDS = 10;
+const MIN_PASSWORD_LENGTH = 8;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface SignupRequest {
   email: string;
@@ -19,11 +32,36 @@ interface LoginRequest {
 }
 
 /**
+ * Lowercase and trim emails so the same address can't register twice
+ */
+function normalizeEmail(email: unknown): string {
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+}
+
+function issueToken(user: StoredUser): string {
+  return jwt.sign({ userId: user.id, email: user.email }, authConfig.jwtSecret, {
+    expiresIn: authConfig.jwtExpiration,
+  } as SignOptions);
+}
+
+function toPublicUser(user: StoredUser) {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.first_name,
+    lastName: user.last_name,
+  };
+}
+
+/**
  * Register a new user
  */
 export async function signup(req: Request, res: Response): Promise<void> {
   try {
-    const { email, password, firstName, lastName } = req.body as SignupRequest;
+    const { password } = req.body as SignupRequest;
+    const email = normalizeEmail(req.body?.email);
+    const firstName = typeof req.body?.firstName === 'string' ? req.body.firstName.trim() : '';
+    const lastName = typeof req.body?.lastName === 'string' ? req.body.lastName.trim() : '';
 
     // Validate input
     if (!email || !password || !firstName || !lastName) {
@@ -31,34 +69,43 @@ export async function signup(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Create user with mock data
-    const userId = uuidv4();
-    const user = {
-      id: userId,
+    if (!EMAIL_PATTERN.test(email)) {
+      res.status(400).json({ error: 'Please enter a valid email address' });
+      return;
+    }
+
+    if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+      res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+      return;
+    }
+
+    if (users.has(email)) {
+      res.status(409).json({ error: 'An account with this email already exists' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    // Re-check after the await: a concurrent signup for the same email may have finished first
+    if (users.has(email)) {
+      res.status(409).json({ error: 'An account with this email already exists' });
+      return;
+    }
+
+    const user: StoredUser = {
+      id: uuidv4(),
       email,
-      password,
+      passwordHash,
       first_name: firstName,
       last_name: lastName,
     };
-    
+
     // Store user in memory
     users.set(email, user);
 
-    // Generate token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      authConfig.jwtSecret,
-      { expiresIn: authConfig.jwtExpiration } as SignOptions
-    );
-
     res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      },
-      token,
+      user: toPublicUser(user),
+      token: issueToken(user),
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -71,43 +118,26 @@ export async function signup(req: Request, res: Response): Promise<void> {
  */
 export async function login(req: Request, res: Response): Promise<void> {
   try {
-    const { email, password } = req.body as LoginRequest;
+    const { password } = req.body as LoginRequest;
+    const email = normalizeEmail(req.body?.email);
 
     if (!email || !password) {
       res.status(400).json({ error: 'Email and password required' });
       return;
     }
 
-    // Check if user exists, if not create one on the fly
-    let user = users.get(email);
-    if (!user) {
-      // Create a new user on the fly for development
-      const userId = uuidv4();
-      user = {
-        id: userId,
-        email,
-        password,
-        first_name: email.split('@')[0],
-        last_name: 'User',
-      };
-      users.set(email, user);
+    const user = users.get(email);
+    const passwordMatches = user && typeof password === 'string' && (await bcrypt.compare(password, user.passwordHash));
+
+    // Same message for unknown email and wrong password, so accounts can't be enumerated
+    if (!user || !passwordMatches) {
+      res.status(401).json({ error: 'Incorrect email or password' });
+      return;
     }
 
-    // Generate token (password is not validated in dev mode)
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      authConfig.jwtSecret,
-      { expiresIn: authConfig.jwtExpiration } as SignOptions
-    );
-
     res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      },
-      token,
+      user: toPublicUser(user),
+      token: issueToken(user),
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -126,7 +156,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
     }
 
     // Find user by ID from token
-    let foundUser = null;
+    let foundUser: StoredUser | null = null;
     for (const user of users.values()) {
       if (user.id === req.userId) {
         foundUser = user;
@@ -134,22 +164,13 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
       }
     }
 
+    // The token is valid but the account no longer exists (e.g. server restarted)
     if (!foundUser) {
-      // Create a placeholder user if not found
-      foundUser = {
-        id: req.userId,
-        email: 'user@example.com',
-        first_name: 'Test',
-        last_name: 'User',
-      };
+      res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
+      return;
     }
 
-    res.json({
-      id: foundUser.id,
-      email: foundUser.email,
-      firstName: foundUser.first_name,
-      lastName: foundUser.last_name,
-    });
+    res.json(toPublicUser(foundUser));
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });

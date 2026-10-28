@@ -1,76 +1,32 @@
 import { Benefit, BenefitEligibilityRule, RecommendationResult, UserProfile } from '../models/userProfile';
 import { getBenefitEligibilityRules, getAllBenefits, getBenefitsByProvince } from '../models/userProfile';
 
-interface MatchingCriteria {
-  profile: UserProfile;
-  benefits: Benefit[];
-  rules: Map<string, BenefitEligibilityRule[]>;
+const ALL_PROVINCES_COUNT = 13;
+
+// Base score for meeting every hard requirement; extra points reflect how specifically a benefit fits
+const BASE_SCORE = 60;
+const CRITERION_POINTS = 10;
+const HEALTH_POINTS = 10;
+const MAX_RULE_PENALTY = 30;
+
+// Keywords that mark a benefit as relevant to people with health conditions
+const HEALTH_KEYWORDS = /disab|health|drug|prescription|pharma|medical|dental|accessib/i;
+
+interface BenefitEvaluation {
+  eligible: boolean;
+  score: number;
+  reasons: string[];
 }
 
-/**
- * Calculate eligibility score for a benefit based on user profile
- */
-function calculateEligibilityScore(benefit: Benefit, profile: UserProfile, rules: BenefitEligibilityRule[]): number {
-  let score = 0;
-  let maxScore = 0;
+const RESIDENCY_LABELS: Record<string, string> = {
+  canadian_citizen: 'Canadian citizens',
+  permanent_resident: 'permanent residents',
+  temporary_resident: 'temporary residents',
+};
 
-  // Age check
-  if (benefit.minimum_age !== null && benefit.minimum_age !== undefined) {
-    maxScore += 20;
-    if (profile.age >= benefit.minimum_age) {
-      score += 20;
-    }
-  }
-  if (benefit.maximum_age !== null && benefit.maximum_age !== undefined) {
-    maxScore += 20;
-    if (profile.age <= benefit.maximum_age) {
-      score += 20;
-    }
-  }
+const isSet = (value: number | null | undefined): value is number => value !== null && value !== undefined;
 
-  // Province check
-  if (benefit.provinces && benefit.provinces.includes(profile.province)) {
-    score += 30;
-    maxScore += 30;
-  } else {
-    maxScore += 30;
-  }
-
-  // Residency status check
-  if (benefit.residency_requirement) {
-    maxScore += 10;
-    if (matchResidencyRequirement(profile.residency_status, benefit.residency_requirement)) {
-      score += 10;
-    }
-  }
-
-  // Income check
-  if (benefit.income_limit_low !== null && benefit.income_limit_low !== undefined) {
-    maxScore += 15;
-    if (isIncomeInRange(profile.income_range, benefit.income_limit_low, benefit.income_limit_high)) {
-      score += 15;
-    }
-  }
-
-  // Medical conditions check
-  if (profile.medical_conditions && profile.medical_conditions.length > 0) {
-    maxScore += 25;
-    const conditionScore = profile.medical_conditions.length * 5;
-    score += Math.min(conditionScore, 25);
-  }
-
-  // Rule-based matching
-  if (rules && rules.length > 0) {
-    maxScore += rules.length * 10;
-    rules.forEach((rule) => {
-      if (matchRule(profile, rule)) {
-        score += rule.weight || 10;
-      }
-    });
-  }
-
-  return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-}
+export const normalizeProvince = (province: string): string => (province || '').trim().toUpperCase();
 
 /**
  * Check if residency status matches requirement
@@ -93,47 +49,124 @@ function isIncomeInRange(range: string, min?: number, max?: number): boolean {
 
   const income = incomeMap[range] || 0;
 
-  if (min && income < min) return false;
-  if (max && income > max) return false;
+  if (isSet(min) && income < min) return false;
+  if (isSet(max) && income > max) return false;
 
   return true;
 }
 
 /**
- * Match eligibility rule against user profile
+ * Whether a benefit is aimed at health, disability or care needs
+ */
+function isHealthRelated(benefit: Benefit): boolean {
+  return HEALTH_KEYWORDS.test(`${benefit.name} ${benefit.description}`);
+}
+
+/**
+ * Match eligibility rule against user profile (string comparisons are case-insensitive)
  */
 function matchRule(profile: UserProfile, rule: BenefitEligibilityRule): boolean {
-  const ruleValue = rule.value.toLowerCase();
+  const ruleValue = rule.value.trim().toLowerCase();
+  const ruleValues = ruleValue.split(',').map((v) => v.trim());
   const operator = rule.operator;
 
   if (rule.condition === 'age') {
-    const targetAge = parseInt(ruleValue);
+    const targetAge = parseInt(ruleValue, 10);
     if (operator === 'greater_than') return profile.age > targetAge;
     if (operator === 'less_than') return profile.age < targetAge;
     if (operator === 'equals') return profile.age === targetAge;
   }
 
   if (rule.condition === 'province') {
-    if (operator === 'equals') return profile.province === ruleValue;
-    if (operator === 'in') return ruleValue.split(',').includes(profile.province);
+    const province = normalizeProvince(profile.province).toLowerCase();
+    if (operator === 'equals') return province === ruleValue;
+    if (operator === 'in') return ruleValues.includes(province);
   }
 
   if (rule.condition === 'residency_status') {
-    if (operator === 'equals') return profile.residency_status === ruleValue;
-    if (operator === 'in') return ruleValue.split(',').includes(profile.residency_status);
+    const status = profile.residency_status.toLowerCase();
+    if (operator === 'equals') return status === ruleValue;
+    if (operator === 'in') return ruleValues.includes(status);
   }
 
   if (rule.condition === 'income_range') {
-    if (operator === 'equals') return profile.income_range === ruleValue;
+    if (operator === 'equals') return profile.income_range.toLowerCase() === ruleValue;
   }
 
   if (rule.condition === 'medical_condition') {
     if (operator === 'contains') {
-      return profile.medical_conditions && profile.medical_conditions.includes(ruleValue);
+      return (profile.medical_conditions || []).some((c) => c.toLowerCase() === ruleValue);
     }
   }
 
   return false;
+}
+
+/**
+ * Evaluate a benefit against a profile.
+ *
+ * Age, province, residency and income limits are hard requirements: failing any of
+ * them makes the benefit ineligible. Eligible benefits start at BASE_SCORE and gain
+ * points for each specific criterion the user meets, so a targeted program the user
+ * clearly fits ranks above a general one. Eligibility rules lower the score when
+ * they don't match.
+ */
+function evaluateBenefit(benefit: Benefit, profile: UserProfile, rules: BenefitEligibilityRule[]): BenefitEvaluation {
+  const ineligible: BenefitEvaluation = { eligible: false, score: 0, reasons: [] };
+  const reasons: string[] = [];
+  let score = BASE_SCORE;
+
+  // Age
+  if (isSet(benefit.minimum_age) && profile.age < benefit.minimum_age) return ineligible;
+  if (isSet(benefit.maximum_age) && profile.age > benefit.maximum_age) return ineligible;
+  if (isSet(benefit.minimum_age) && benefit.minimum_age > 0) {
+    score += CRITERION_POINTS;
+    reasons.push(`Meets minimum age requirement (${benefit.minimum_age}+)`);
+  }
+
+  // Province
+  const provinces = (benefit.provinces || []).map(normalizeProvince);
+  const province = normalizeProvince(profile.province);
+  if (!provinces.includes(province)) return ineligible;
+  if (provinces.length < ALL_PROVINCES_COUNT) {
+    score += CRITERION_POINTS;
+    reasons.push(`Available to residents of ${province}`);
+  } else {
+    reasons.push('Available across Canada');
+  }
+
+  // Residency
+  if (benefit.residency_requirement) {
+    if (!matchResidencyRequirement(profile.residency_status, benefit.residency_requirement)) return ineligible;
+    score += CRITERION_POINTS;
+    reasons.push(`Open to ${RESIDENCY_LABELS[profile.residency_status] || profile.residency_status}`);
+  }
+
+  // Income
+  if (isSet(benefit.income_limit_low) || isSet(benefit.income_limit_high)) {
+    if (!isIncomeInRange(profile.income_range, benefit.income_limit_low, benefit.income_limit_high)) {
+      return ineligible;
+    }
+    score += CRITERION_POINTS;
+    reasons.push('Your income is within the program limit');
+  }
+
+  // Health conditions only count for benefits that relate to health needs
+  const conditions = profile.medical_conditions || [];
+  if (conditions.length > 0 && isHealthRelated(benefit)) {
+    score += HEALTH_POINTS;
+    reasons.push(`May help with your health needs (${conditions.join(', ')})`);
+  }
+
+  // Rule-based matching
+  if (rules && rules.length > 0) {
+    const weightOf = (rule: BenefitEligibilityRule) => rule.weight || 10;
+    const totalWeight = rules.reduce((sum, rule) => sum + weightOf(rule), 0);
+    const matchedWeight = rules.filter((rule) => matchRule(profile, rule)).reduce((sum, rule) => sum + weightOf(rule), 0);
+    score -= Math.round(MAX_RULE_PENALTY * (1 - matchedWeight / totalWeight));
+  }
+
+  return { eligible: true, score: Math.max(0, Math.min(100, score)), reasons };
 }
 
 /**
@@ -153,23 +186,19 @@ export async function findMatchingBenefits(profile: UserProfile): Promise<Recomm
       rulesMap.set(benefit.id, rules);
     }
 
-    // Calculate scores and filter
+    // Evaluate, keep eligible benefits, and rank by score
     const recommendations = benefits
-      .map((benefit) => {
-        const rules = rulesMap.get(benefit.id) || [];
-        const score = calculateEligibilityScore(benefit, profile, rules);
-
-        return {
-          benefit_id: benefit.id,
-          benefit_name: benefit.name,
-          provider: benefit.provider,
-          match_score: score,
-          eligibility_reasons: generateEligibilityReasons(benefit, profile, score),
-          application_url: benefit.application_url,
-          phone_number: benefit.phone_number,
-        };
-      })
-      .filter((r) => r.match_score >= 30) // Filter for at least 30% match
+      .map((benefit) => ({ benefit, evaluation: evaluateBenefit(benefit, profile, rulesMap.get(benefit.id) || []) }))
+      .filter(({ evaluation }) => evaluation.eligible)
+      .map(({ benefit, evaluation }) => ({
+        benefit_id: benefit.id,
+        benefit_name: benefit.name,
+        provider: benefit.provider,
+        match_score: evaluation.score,
+        eligibility_reasons: evaluation.reasons,
+        application_url: benefit.application_url,
+        phone_number: benefit.phone_number,
+      }))
       .sort((a, b) => b.match_score - a.match_score);
 
     return recommendations;
@@ -177,35 +206,6 @@ export async function findMatchingBenefits(profile: UserProfile): Promise<Recomm
     console.error('Error finding matching benefits:', error);
     throw error;
   }
-}
-
-/**
- * Generate human-readable eligibility reasons
- */
-function generateEligibilityReasons(benefit: Benefit, profile: UserProfile, score: number): string[] {
-  const reasons: string[] = [];
-
-  if (benefit.minimum_age && profile.age >= benefit.minimum_age) {
-    reasons.push(`Meets minimum age requirement (${benefit.minimum_age}+)`);
-  }
-
-  if (benefit.provinces && benefit.provinces.includes(profile.province)) {
-    reasons.push(`Available in ${profile.province}`);
-  }
-
-  if (profile.medical_conditions && profile.medical_conditions.length > 0) {
-    reasons.push(`Applicable to conditions: ${profile.medical_conditions.join(', ')}`);
-  }
-
-  if (benefit.income_limit_low && isIncomeInRange(profile.income_range, benefit.income_limit_low, benefit.income_limit_high)) {
-    reasons.push('Income level qualifies');
-  }
-
-  if (reasons.length === 0 && score > 0) {
-    reasons.push('Meets eligibility criteria');
-  }
-
-  return reasons;
 }
 
 /**
@@ -220,13 +220,13 @@ export async function getBenefitDetailsForProfile(benefitId: string, profile: Us
   }
 
   const rules = await getBenefitEligibilityRules(benefitId);
-  const score = calculateEligibilityScore(benefit, profile, rules);
+  const evaluation = evaluateBenefit(benefit, profile, rules);
 
   return {
     benefit,
-    eligibility_score: score,
-    is_eligible: score >= 50,
-    reasons: generateEligibilityReasons(benefit, profile, score),
+    eligibility_score: evaluation.score,
+    is_eligible: evaluation.eligible,
+    reasons: evaluation.reasons,
     next_steps: generateNextSteps(benefit),
   };
 }
