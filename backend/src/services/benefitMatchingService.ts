@@ -26,6 +26,8 @@ const RESIDENCY_LABELS: Record<string, string> = {
 
 const isSet = (value: number | null | undefined): value is number => value !== null && value !== undefined;
 
+export const normalizeProvince = (province: string): string => (province || '').trim().toUpperCase();
+
 /**
  * Check if residency status matches requirement
  */
@@ -76,7 +78,7 @@ function matchRule(profile: UserProfile, rule: BenefitEligibilityRule): boolean 
   }
 
   if (rule.condition === 'province') {
-    const province = profile.province.toLowerCase();
+    const province = normalizeProvince(profile.province).toLowerCase();
     if (operator === 'equals') return province === ruleValue;
     if (operator === 'in') return ruleValues.includes(province);
   }
@@ -123,11 +125,12 @@ function evaluateBenefit(benefit: Benefit, profile: UserProfile, rules: BenefitE
   }
 
   // Province
-  const provinces = benefit.provinces || [];
-  if (!provinces.includes(profile.province)) return ineligible;
+  const provinces = (benefit.provinces || []).map(normalizeProvince);
+  const province = normalizeProvince(profile.province);
+  if (!provinces.includes(province)) return ineligible;
   if (provinces.length < ALL_PROVINCES_COUNT) {
     score += CRITERION_POINTS;
-    reasons.push(`Available to residents of ${profile.province}`);
+    reasons.push(`Available to residents of ${province}`);
   } else {
     reasons.push('Available across Canada');
   }

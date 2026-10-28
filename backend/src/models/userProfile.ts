@@ -190,7 +190,8 @@ export async function getAllBenefits(): Promise<Benefit[]> {
  * Get benefits by province
  */
 export async function getBenefitsByProvince(province: string): Promise<Benefit[]> {
-  return sampleBenefits.filter((b) => b.provinces.includes(province));
+  const normalized = (province || '').trim().toUpperCase();
+  return sampleBenefits.filter((b) => b.provinces.some((p) => p.toUpperCase() === normalized));
 }
 
 /**
