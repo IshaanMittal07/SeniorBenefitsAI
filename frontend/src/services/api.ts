@@ -36,7 +36,9 @@ class APIClient {
       (response) => response,
       (error) => {
         const url: string = error.config?.url || '';
-        if (error.response?.status === 401 && this.token && !url.startsWith('/auth/')) {
+        // Only clear the session that made this request, not one created after it was sent
+        const sentWithCurrentToken = error.config?.headers?.Authorization === `Bearer ${this.token}`;
+        if (error.response?.status === 401 && this.token && sentWithCurrentToken && !url.startsWith('/auth/')) {
           this.clearSession();
           this.sessionExpiredHandler?.();
         }

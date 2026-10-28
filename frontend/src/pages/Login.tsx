@@ -61,9 +61,7 @@ export const Login: React.FC = () => {
           </span>
           <h1 className="mt-5 text-3xl">{isSignup ? 'Create your account' : 'Welcome back'}</h1>
           <p className="mt-2 text-lg text-ink-muted">
-            {isSignup
-              ? 'It’s free and takes less than a minute.'
-              : 'Sign in to see the benefits you may qualify for.'}
+            {isSignup ? 'It’s free and takes less than a minute.' : 'Sign in to see the benefits you may qualify for.'}
           </p>
         </div>
 
@@ -75,7 +73,7 @@ export const Login: React.FC = () => {
           ) : (
             from && (
               <Alert variant="info" className="mb-6">
-                Please sign in to continue.
+                Sign in or create an account to continue.
               </Alert>
             )
           )}
