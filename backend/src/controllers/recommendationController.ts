@@ -101,6 +101,11 @@ export async function naturalLanguageRecommendation(req: Request, res: Response)
       return;
     }
 
+    if (!llmService.isConfigured()) {
+      res.status(503).json({ error: 'Natural language search is not available right now. Please use your profile instead.' });
+      return;
+    }
+
     // Parse query using LLM
     const parsedData = await llmService.parseNaturalLanguageQuery(query);
 

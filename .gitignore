@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/build/
+backend/dist/
+backend/lambda.zip
+
+# Environment files (keep the examples)
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+
+# Vercel
+.vercel/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

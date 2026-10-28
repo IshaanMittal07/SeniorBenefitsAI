@@ -1,0 +1,28 @@
+# CodeRabbit configuration - https://docs.coderabbit.ai/getting-started/configure-coderabbit
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/package-lock.json"
+    - "!**/build/**"
+    - "!**/dist/**"
+  path_instructions:
+    - path: "frontend/src/**/*.tsx"
+      instructions: >-
+        The primary audience is Canadian seniors. Check accessibility (labels,
+        focus states, contrast, aria attributes, tap target size) and that
+        copy is plain-language.
+    - path: "backend/src/**/*.ts"
+      instructions: >-
+        Check input validation, auth handling and that errors never leak
+        internal details to clients.
+chat:
+  auto_reply: true
