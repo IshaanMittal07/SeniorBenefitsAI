@@ -1,5 +1,45 @@
 # Deployment Guide
 
+## Vercel (hosted demo)
+
+The frontend can be hosted on Vercel without the backend, using **demo mode**. With `REACT_APP_DEMO_MODE=true`, the app runs entirely in the browser:
+
+- accounts and profiles are stored in the visitor's `localStorage` (nothing is sent to a server)
+- recommendations come from the bundled catalogue in `frontend/src/services/demo/benefitsCatalog.ts`
+- questions are answered by a rule-based parser instead of OpenAI
+- a banner at the top of every page says it is a demo
+
+[`frontend/vercel.json`](frontend/vercel.json) configures this, with `frontend/` as the Vercel project root:
+
+| Setting | Value |
+|---|---|
+| Install command | `npm ci` |
+| Build command | `REACT_APP_DEMO_MODE=true npm run build` |
+| Output directory | `build` |
+| Rewrites | every path → `/index.html`, so deep links work |
+
+### Deploy with the CLI
+
+```bash
+cd frontend
+npx vercel login
+npx vercel          # preview deployment
+npx vercel --prod   # production deployment
+```
+
+### Deploy from GitHub
+
+1. In the Vercel dashboard choose **Add New → Project** and import this repository.
+2. Set **Root Directory** to `frontend`. `frontend/vercel.json` provides the build settings.
+   The root must be `frontend`, not the repository root: at the root, Vercel detects both the React app and the Express backend and refuses to pick one.
+3. Every push to `main` deploys to production, and every pull request gets a preview URL.
+
+> Vercel sets `CI=1`, and Create React App then treats ESLint warnings as errors. Run `CI=true npm run build` in `frontend/` before pushing to catch them locally.
+
+### Connecting a real backend later
+
+To use the Express API instead of demo mode, deploy the backend (see [Backend Deployment to Lambda](#backend-deployment-to-lambda)). Then change the build command in `frontend/vercel.json` to `npm run build` and set `REACT_APP_API_URL` to the API's URL in the Vercel project's environment variables.
+
 ## AWS Infrastructure Deployment
 
 ### Prerequisites

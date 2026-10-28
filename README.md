@@ -2,6 +2,26 @@
 
 A comprehensive web application that helps Canadian senior citizens discover eligible government and health benefit programs based on their profile, location, and medical conditions.
 
+## 🌐 Live demo
+
+**https://senior-benefits-finder.vercel.app**
+
+The hosted version runs in **demo mode** (`REACT_APP_DEMO_MODE=true`). The whole app runs in your browser, with no backend:
+
+- Create an account, fill in your profile and see ranked recommendations with official application links
+- Ask questions in plain language, e.g. *"My mother is 80 in Halifax on a fixed income"*
+- Everything is stored in your browser's `localStorage` and never sent to a server
+
+The demo uses a curated catalogue of 15 federal and provincial programs (`frontend/src/services/demo/benefitsCatalog.ts`) and a rule-based question parser instead of OpenAI. See [DEPLOYMENT.md](DEPLOYMENT.md#vercel-hosted-demo) for how it is deployed.
+
+To run demo mode locally:
+
+```bash
+cd frontend
+npm ci
+REACT_APP_DEMO_MODE=true npm start    # Windows PowerShell: $env:REACT_APP_DEMO_MODE="true"; npm start
+```
+
 ## 🎯 Features
 
 - **User Profile Management**: Create and manage senior citizen profiles with age, location, residency status, income, and medical conditions
