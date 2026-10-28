@@ -1,9 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
-import { UserProfile, AuthResponse, RecommendationResponse, Benefit } from '../types';
+import { UserProfile, AuthResponse, RecommendationResponse, Benefit, User } from '../types';
 
 class APIClient {
   private client: AxiosInstance;
   private token: string | null = null;
+  private user: User | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -14,8 +15,9 @@ class APIClient {
       },
     });
 
-    // Load token from localStorage
+    // Load session from localStorage
     this.token = localStorage.getItem('token');
+    this.user = this.readStoredUser();
     if (this.token) {
       this.setAuthHeader(this.token);
     }
@@ -33,6 +35,31 @@ class APIClient {
     this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
+  private readStoredUser(): User | null {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? (JSON.parse(stored) as User) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveSession(auth: AuthResponse): void {
+    this.token = auth.token;
+    this.user = auth.user;
+    localStorage.setItem('token', auth.token);
+    localStorage.setItem('user', JSON.stringify(auth.user));
+    this.setAuthHeader(auth.token);
+  }
+
+  clearSession(): void {
+    this.token = null;
+    this.user = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    delete this.client.defaults.headers.common['Authorization'];
+  }
+
   // Auth endpoints
   async signup(email: string, password: string, firstName: string, lastName: string): Promise<AuthResponse> {
     const response = await this.client.post<AuthResponse>('/auth/signup', {
@@ -41,9 +68,7 @@ class APIClient {
       firstName,
       lastName,
     });
-    this.token = response.data.token;
-    localStorage.setItem('token', this.token);
-    this.setAuthHeader(this.token);
+    this.saveSession(response.data);
     return response.data;
   }
 
@@ -52,9 +77,7 @@ class APIClient {
       email,
       password,
     });
-    this.token = response.data.token;
-    localStorage.setItem('token', this.token);
-    this.setAuthHeader(this.token);
+    this.saveSession(response.data);
     return response.data;
   }
 
@@ -62,9 +85,7 @@ class APIClient {
     try {
       await this.client.post('/auth/logout');
     } finally {
-      this.token = null;
-      localStorage.removeItem('token');
-      delete this.client.defaults.headers.common['Authorization'];
+      this.clearSession();
     }
   }
 
@@ -102,6 +123,10 @@ class APIClient {
 
   isAuthenticated(): boolean {
     return !!this.token;
+  }
+
+  getUser(): User | null {
+    return this.user;
   }
 
   getToken(): string | null {

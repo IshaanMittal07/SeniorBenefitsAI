@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Alert } from '../components/ui/Alert';
 import { EyeIcon, EyeOffIcon, HeartIcon } from '../components/ui/Icons';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { login, signup } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,9 +25,9 @@ export const Login: React.FC = () => {
 
     try {
       if (isSignup) {
-        await api.signup(email, password, firstName, lastName);
+        await signup(email, password, firstName, lastName);
       } else {
-        await api.login(email, password);
+        await login(email, password);
       }
       navigate('/profile');
     } catch (err: any) {

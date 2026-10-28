@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { CloseIcon, HeartIcon, MenuIcon } from './ui/Icons';
 
 const NAV_LINKS = [
@@ -23,7 +23,7 @@ const NavBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const isAuthenticated = api.isAuthenticated();
+  const { isAuthenticated, user, logout } = useAuth();
 
   // Close the mobile menu whenever the route changes
   useEffect(() => {
@@ -31,8 +31,8 @@ const NavBar: React.FC = () => {
   }, [location.pathname]);
 
   const handleLogout = async () => {
-    await api.logout();
-    navigate('/login');
+    await logout();
+    navigate('/');
   };
 
   return (
@@ -53,6 +53,7 @@ const NavBar: React.FC = () => {
                   {link.label}
                 </NavLink>
               ))}
+              {user?.firstName && <span className="ml-3 hidden text-brand-100 lg:inline">Hi, {user.firstName}</span>}
               <button
                 type="button"
                 onClick={handleLogout}
@@ -114,8 +115,7 @@ const Footer: React.FC = () => (
   <footer className="mt-16 border-t border-slate-200 bg-white print:hidden">
     <div className="container-page flex flex-col gap-4 py-8 text-ink-muted sm:flex-row sm:items-center sm:justify-between">
       <p className="max-w-xl text-sm">
-        This tool gives general guidance only. Always confirm eligibility with the program provider before
-        applying.
+        This tool gives general guidance only. Always confirm eligibility with the program provider before applying.
       </p>
       <p className="text-sm">
         Questions? Call 1 800 O-Canada:{' '}

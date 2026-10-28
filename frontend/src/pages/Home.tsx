@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { ArrowRightIcon, CheckCircleIcon, ListIcon, ShieldIcon, SparkleIcon, UserIcon } from '../components/ui/Icons';
 
 const STEPS = [
@@ -31,7 +31,7 @@ const PROGRAM_EXAMPLES = [
 ];
 
 export const Home: React.FC = () => {
-  const isAuthenticated = api.isAuthenticated();
+  const { isAuthenticated } = useAuth();
   const primaryCta = isAuthenticated
     ? { to: '/recommendations', label: 'See my benefits' }
     : { to: '/login?mode=signup', label: 'Get started — it’s free' };
