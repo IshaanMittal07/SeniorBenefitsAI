@@ -21,9 +21,9 @@ export const RESIDENCY_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: 'canadian_citizen', label: 'Canadian citizen', description: 'Born in Canada or naturalized' },
-  { value: 'permanent_resident', label: 'Permanent resident', description: 'Holds a PR card' },
-  { value: 'temporary_resident', label: 'Temporary resident', description: 'Visitor, work or study permit' },
+  { value: 'canadian_citizen', label: 'Canadian citizen', description: 'Wherever you were born' },
+  { value: 'permanent_resident', label: 'Permanent resident', description: 'Even if your PR card has expired' },
+  { value: 'temporary_resident', label: 'Temporary resident', description: 'Visitor, worker or student status' },
 ];
 
 export const INCOME_OPTIONS: Array<{

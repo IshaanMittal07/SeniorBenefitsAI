@@ -17,7 +17,7 @@ const STEPS = [
   {
     icon: CheckCircleIcon,
     title: 'Apply with confidence',
-    body: 'Every result links to the official application page and phone line, so you know exactly where to go next.',
+    body: 'Results include the official application page or phone line when available, so you know where to go next.',
   },
 ];
 
