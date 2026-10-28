@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { Recommendation, RecommendationResponse } from '../types';
@@ -99,6 +99,7 @@ export const Recommendations: React.FC = () => {
   const [error, setError] = useState('');
   const [missingProfile, setMissingProfile] = useState(false);
   const [search, setSearch] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchRecommendations = async () => {
@@ -178,7 +179,7 @@ export const Recommendations: React.FC = () => {
         }
         actions={
           <div className="flex flex-wrap gap-3 print:hidden">
-            {hasResults && (
+            {filtered.length > 0 && (
               <button type="button" onClick={() => window.print()} className="btn-ghost">
                 <PrinterIcon size={20} />
                 Print list
@@ -210,6 +211,7 @@ export const Recommendations: React.FC = () => {
               />
               <input
                 id="benefit-search"
+                ref={searchInput}
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -223,13 +225,19 @@ export const Recommendations: React.FC = () => {
                 What does the match score mean?
               </summary>
               <p className="mt-2 text-ink-muted">
-                Every program listed meets the age, location, residency and income rules we know about. The score shows
-                how closely the program is aimed at someone in your situation: <strong>Strong match</strong> programs
-                target people like you specifically, while <strong>Worth checking</strong> programs are broader. The
-                provider makes the final decision, so always confirm before applying.
+                The score is our estimate of how well a program fits the details in your profile. It is not a decision
+                about eligibility. <strong>Strong match</strong> programs are aimed closely at people in your situation,
+                while <strong>Worth checking</strong> programs are broader or depend on details we don’t ask about. Only
+                the program provider can confirm whether you qualify, so always check before applying.
               </p>
             </details>
           </div>
+
+          {search.trim() && filtered.length > 0 && (
+            <p className="mb-4 hidden print:block">
+              Showing {filtered.length} of {total} programs matching “{search.trim()}”.
+            </p>
+          )}
 
           <p className="sr-only" aria-live="polite">
             {search.trim() ? `${filtered.length} of ${total} programs match your search` : ''}
@@ -244,7 +252,14 @@ export const Recommendations: React.FC = () => {
           ) : (
             <div className="card p-8 text-center">
               <p className="text-lg">No programs match “{search.trim()}”.</p>
-              <button type="button" onClick={() => setSearch('')} className="btn-secondary mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  searchInput.current?.focus();
+                }}
+                className="btn-secondary mt-4"
+              >
                 Clear search
               </button>
             </div>
