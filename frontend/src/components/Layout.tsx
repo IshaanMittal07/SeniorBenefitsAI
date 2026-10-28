@@ -9,6 +9,8 @@ const NAV_LINKS = [
   { to: '/query', label: 'Ask a Question' },
 ];
 
+const PUBLIC_NAV_LINKS = [{ to: '/query', label: 'Ask a Question' }];
+
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-lg px-3 py-2 font-bold transition-colors ${
     isActive ? 'bg-white/15 text-white' : 'text-brand-100 hover:bg-white/10 hover:text-white'
@@ -63,9 +65,16 @@ const NavBar: React.FC = () => {
               </button>
             </>
           ) : (
-            <Link to="/login" className="btn bg-white text-brand-800 hover:bg-brand-50">
-              Sign in
-            </Link>
+            <>
+              {PUBLIC_NAV_LINKS.map((link) => (
+                <NavLink key={link.to} to={link.to} className={navLinkClass}>
+                  {link.label}
+                </NavLink>
+              ))}
+              <Link to="/login" className="btn ml-2 bg-white text-brand-800 hover:bg-brand-50">
+                Sign in
+              </Link>
+            </>
           )}
         </div>
 
@@ -100,9 +109,16 @@ const NavBar: React.FC = () => {
                 </button>
               </>
             ) : (
-              <NavLink to="/login" className={mobileNavLinkClass}>
-                Sign in
-              </NavLink>
+              <>
+                {PUBLIC_NAV_LINKS.map((link) => (
+                  <NavLink key={link.to} to={link.to} className={mobileNavLinkClass}>
+                    {link.label}
+                  </NavLink>
+                ))}
+                <NavLink to="/login" className={mobileNavLinkClass}>
+                  Sign in
+                </NavLink>
+              </>
             )}
           </div>
         </div>

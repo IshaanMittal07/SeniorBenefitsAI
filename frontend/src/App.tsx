@@ -47,14 +47,7 @@ export const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/query"
-              element={
-                <ProtectedRoute>
-                  <NaturalLanguageQuery />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/query" element={<NaturalLanguageQuery />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
