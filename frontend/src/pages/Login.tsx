@@ -6,13 +6,14 @@ import { EyeIcon, EyeOffIcon, HeartIcon } from '../components/ui/Icons';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSignup, setIsSignup] = useState(searchParams.get('mode') === 'signup');
+  // The URL is the source of truth for the mode, so header links and the back button stay in sync
+  const isSignup = searchParams.get('mode') === 'signup';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
@@ -36,7 +37,7 @@ export const Login: React.FC = () => {
   };
 
   const toggleMode = () => {
-    setIsSignup((value) => !value);
+    setSearchParams(isSignup ? {} : { mode: 'signup' }, { replace: true });
     setError('');
   };
 
