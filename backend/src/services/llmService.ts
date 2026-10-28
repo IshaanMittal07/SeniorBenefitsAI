@@ -24,10 +24,11 @@ export class LLMService {
   private openai: OpenAI | null = null;
 
   /**
-   * Whether an OpenAI API key is configured
+   * Whether a real OpenAI API key is configured (the .env.example placeholder doesn't count)
    */
   isConfigured(): boolean {
-    return !!llmConfig.apiKey;
+    const apiKey = llmConfig.apiKey?.trim();
+    return !!apiKey && !apiKey.includes('your-openai-api-key');
   }
 
   /**
