@@ -50,7 +50,7 @@ const Section: React.FC<{ title: string; description?: string; children: React.R
 }) => (
   <fieldset className="card p-6 sm:p-8">
     <legend className="sr-only">{title}</legend>
-    <h2 aria-hidden="true" className="text-xl">
+    <h2 className="text-xl">
       {title}
     </h2>
     {description && <p className="mt-1 text-ink-muted">{description}</p>}

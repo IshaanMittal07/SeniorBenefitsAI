@@ -12,6 +12,8 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 const MAX_LENGTH = 500;
+// Warn screen reader users once they are close to the limit, without announcing every keystroke
+const LIMIT_WARNING_AT = MAX_LENGTH - 50;
 
 export const NaturalLanguageQuery: React.FC = () => {
   const [query, setQuery] = useState('');
@@ -59,6 +61,13 @@ export const NaturalLanguageQuery: React.FC = () => {
         />
         <p id="query-count" className="hint text-right">
           {query.length} / {MAX_LENGTH} characters
+        </p>
+        <p className="sr-only" role="status" aria-live="polite">
+          {query.length >= MAX_LENGTH
+            ? `You have reached the ${MAX_LENGTH}-character limit.`
+            : query.length >= LIMIT_WARNING_AT
+              ? 'You are close to the character limit.'
+              : ''}
         </p>
 
         <div className="mt-4">
