@@ -32,6 +32,7 @@ export interface Recommendation {
   benefit_id: string;
   benefit_name: string;
   provider: string;
+  description?: string;
   match_score: number;
   eligibility_reasons: string[];
   application_url?: string;
@@ -56,4 +57,23 @@ export interface User {
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+export interface ParsedQueryProfile {
+  age?: number | null;
+  province?: string | null;
+  residencyStatus?: string | null;
+  medicalConditions?: string[] | null;
+  incomeLevel?: string | null;
+}
+
+export interface NaturalLanguageResponse {
+  query: string;
+  parsed_profile: ParsedQueryProfile;
+  recommendations: {
+    benefits: string[];
+    explanation: string;
+    nextSteps: string[];
+  };
+  generated_at: string;
 }

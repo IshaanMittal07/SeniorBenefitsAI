@@ -1,94 +1,194 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { INCOME_OPTIONS, RESIDENCY_OPTIONS, provinceName } from '../constants/profileOptions';
+import { NaturalLanguageResponse, ParsedQueryProfile } from '../types';
+import { Alert } from './ui/Alert';
+import { PageHeader } from './ui/PageHeader';
+import { Spinner } from './ui/Spinner';
+import { CheckIcon, SparkleIcon } from './ui/Icons';
+
+const EXAMPLE_QUESTIONS = [
+  'I’m 72, live in Ontario, and have arthritis and a low income. What can I get?',
+  'I just turned 65 in British Columbia. Which pensions should I apply for?',
+  'My mother is 80 in Alberta and needs help paying for prescriptions.',
+];
+
+const MAX_LENGTH = 500;
+// Warn screen reader users once they are close to the limit, without announcing every keystroke
+const LIMIT_WARNING_AT = MAX_LENGTH - 50;
+
+/**
+ * Turn the details extracted from the question into readable labels
+ */
+const describeParsedProfile = (parsed: ParsedQueryProfile | undefined): string[] => {
+  if (!parsed) return [];
+  const details: string[] = [];
+  if (parsed.age) details.push(`Age ${parsed.age}`);
+  if (parsed.province) details.push(provinceName(parsed.province));
+  const residency = RESIDENCY_OPTIONS.find((option) => option.value === parsed.residencyStatus);
+  if (residency) details.push(residency.label);
+  const income = INCOME_OPTIONS.find((option) => option.value === parsed.incomeLevel);
+  if (income) details.push(`Income ${income.label.toLowerCase()}`);
+  (parsed.medicalConditions || []).forEach((condition) => details.push(condition));
+  return details;
+};
 
 export const NaturalLanguageQuery: React.FC = () => {
   const [query, setQuery] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const { isAuthenticated } = useAuth();
+  const [result, setResult] = useState<NaturalLanguageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setResult(null);
     setLoading(true);
 
     try {
       const data = await api.naturalLanguageQuery(query);
       setResult(data);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to process query');
+      setError(err.response?.data?.error || 'We couldn’t answer that question. Please try rewording it.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 py-12 px-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Ask About Benefits</h1>
-          <p className="text-gray-600 mb-8">
-            Describe your situation naturally, and we'll help find relevant benefits
-          </p>
+    <div className="container-page max-w-3xl py-10 sm:py-14">
+      <PageHeader
+        eyebrow="Ask a question"
+        title="Describe your situation in your own words"
+        description="Tell us your age, where you live and anything else that matters. We’ll suggest programs to look into."
+      />
 
-          {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
+      <form onSubmit={handleSubmit} className="card p-6 sm:p-8">
+        <label htmlFor="query" className="label text-lg">
+          Your question
+        </label>
+        <textarea
+          id="query"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          maxLength={MAX_LENGTH}
+          rows={5}
+          aria-describedby="query-count"
+          placeholder="For example: I’m a 72-year-old permanent resident in Ontario with arthritis and a low income."
+          className="input min-h-[9rem] resize-y leading-relaxed"
+          required
+        />
+        <p id="query-count" className="hint text-right">
+          {query.length} / {MAX_LENGTH} characters
+        </p>
+        <p className="sr-only" role="status" aria-live="polite">
+          {query.length >= MAX_LENGTH
+            ? `You have reached the ${MAX_LENGTH}-character limit.`
+            : query.length >= LIMIT_WARNING_AT
+              ? 'You are close to the character limit.'
+              : ''}
+        </p>
 
-          <form onSubmit={handleSubmit} className="mb-8">
-            <textarea
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="E.g., I'm a 72-year-old immigrant in Ontario with arthritis and low income. What benefits can I get?"
-              className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
-              required
-            />
+        <div className="mt-4">
+          <p className="text-sm font-bold text-ink-muted">Or try an example:</p>
+          <div className="mt-2 flex flex-col gap-2">
+            {EXAMPLE_QUESTIONS.map((example) => (
+              <button
+                key={example}
+                type="button"
+                onClick={() => setQuery(example)}
+                className="rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-left hover:border-brand-300 hover:bg-brand-50"
+              >
+                {example}
+              </button>
+            ))}
+          </div>
+        </div>
 
-            <button
-              type="submit"
-              disabled={loading || !query.trim()}
-              className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:bg-gray-400"
-            >
-              {loading ? 'Searching...' : 'Find Benefits'}
-            </button>
-          </form>
+        <button type="submit" disabled={loading || !query.trim()} className="btn-primary mt-6 w-full text-lg">
+          <SparkleIcon size={20} />
+          {loading ? 'Looking for benefits…' : 'Find benefits'}
+        </button>
+      </form>
 
-          {result && (
-            <div className="space-y-4">
-              {result.recommendations && (
-                <>
-                  <h2 className="text-2xl font-bold text-gray-800">Recommendations</h2>
-                  <p className="text-gray-600">{result.recommendations.explanation}</p>
+      <div aria-live="polite" className="mt-8 space-y-6">
+        {error && <Alert variant="error">{error}</Alert>}
 
-                  {result.recommendations.benefits && result.recommendations.benefits.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-gray-800 mb-2">Recommended Benefits:</h3>
-                      <ul className="space-y-2">
-                        {result.recommendations.benefits.map((benefit: string, idx: number) => (
-                          <li key={idx} className="flex items-start text-green-600">
-                            <span className="mr-2">✓</span>
-                            <span className="text-gray-700">{benefit}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+        {loading && <Spinner label="Reading your question…" />}
 
-                  {result.recommendations.nextSteps && result.recommendations.nextSteps.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-gray-800 mb-2">Next Steps:</h3>
-                      <ol className="space-y-2 list-decimal list-inside">
-                        {result.recommendations.nextSteps.map((step: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">
-                            {step}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
-                </>
+        {!loading && result?.recommendations && (
+          <section className="card p-6 sm:p-8">
+            <h2 className="text-2xl">Our suggestions</h2>
+            {describeParsedProfile(result.parsed_profile).length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-bold text-ink-muted">Here’s what we understood:</p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {describeParsedProfile(result.parsed_profile).map((detail) => (
+                    <li key={detail} className="rounded-full bg-brand-50 px-3 py-1 text-sm font-bold text-brand-800">
+                      {detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {result.recommendations.explanation && (
+              <p className="mt-3 text-lg text-ink-muted">{result.recommendations.explanation}</p>
+            )}
+
+            {result.recommendations.benefits?.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg">Programs to look into</h3>
+                <ul className="mt-3 space-y-2">
+                  {result.recommendations.benefits.map((benefit: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-3 rounded-xl bg-emerald-50 px-4 py-3">
+                      <CheckIcon size={22} strokeWidth={3} className="mt-0.5 shrink-0 text-emerald-600" />
+                      <span className="font-bold">{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result.recommendations.nextSteps?.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg">Next steps</h3>
+                <ol className="mt-3 space-y-3">
+                  {result.recommendations.nextSteps.map((step: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-3">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-700 text-sm font-bold text-white">
+                        {idx + 1}
+                      </span>
+                      <span className="pt-1">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            <div className="mt-8 rounded-xl bg-slate-50 px-5 py-4">
+              {isAuthenticated ? (
+                <p>
+                  For a detailed, ranked list with application links,{' '}
+                  <Link to="/recommendations" className="link">
+                    see my benefits
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <p>
+                  Want a detailed list with application links and phone numbers?{' '}
+                  <Link to="/login?mode=signup" className="link">
+                    Create a free account
+                  </Link>
+                  .
+                </p>
               )}
             </div>
-          )}
-        </div>
+          </section>
+        )}
       </div>
     </div>
   );

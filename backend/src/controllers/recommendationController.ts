@@ -109,7 +109,7 @@ export async function naturalLanguageRecommendation(req: Request, res: Response)
     // Parse query using LLM
     const parsedData = await llmService.parseNaturalLanguageQuery(query);
 
-    // If user is authenticated and has a profile, use it; otherwise use parsed data
+    // A signed-in user's saved profile fills in anything the question doesn't say
     let profile;
     if (req.userId) {
       profile = await getUserProfile(req.userId);
@@ -120,13 +120,16 @@ export async function naturalLanguageRecommendation(req: Request, res: Response)
       return;
     }
 
-    // Merge parsed data with existing profile
-    const enrichedProfile = profile || {
-      age: parsedData.age || 65,
-      province: parsedData.province || 'ON',
-      residency_status: parsedData.residencyStatus || 'canadian_citizen',
-      income_range: parsedData.incomeLevel || 'medium',
-      medical_conditions: parsedData.medicalConditions || [],
+    // Details from the question take priority, so asking about someone else
+    // (e.g. "my mother is 80") isn't answered with the asker's own profile
+    const enrichedProfile = {
+      age: parsedData.age || profile?.age || 65,
+      province: parsedData.province || profile?.province || 'ON',
+      residency_status: parsedData.residencyStatus || profile?.residency_status || 'canadian_citizen',
+      income_range: parsedData.incomeLevel || profile?.income_range || 'medium',
+      medical_conditions: parsedData.medicalConditions?.length
+        ? parsedData.medicalConditions
+        : profile?.medical_conditions || [],
     };
 
     // Get benefits
