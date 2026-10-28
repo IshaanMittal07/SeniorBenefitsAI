@@ -5,6 +5,7 @@ class APIClient {
   private client: AxiosInstance;
   private token: string | null = null;
   private user: User | null = null;
+  private sessionExpiredHandler: (() => void) | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -29,6 +30,26 @@ class APIClient {
       }
       return config;
     });
+
+    // An expired or invalid token can't be fixed by retrying: sign the user out
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        const url: string = error.config?.url || '';
+        if (error.response?.status === 401 && this.token && !url.startsWith('/auth/')) {
+          this.clearSession();
+          this.sessionExpiredHandler?.();
+        }
+        return Promise.reject(error);
+      },
+    );
+  }
+
+  /**
+   * Register a callback that runs when the server rejects the current session
+   */
+  onSessionExpired(handler: (() => void) | null): void {
+    this.sessionExpiredHandler = handler;
   }
 
   private setAuthHeader(token: string): void {

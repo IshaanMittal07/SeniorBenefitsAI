@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { User } from '../types';
 
@@ -19,6 +19,14 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(api.isAuthenticated());
   const [user, setUser] = useState<User | null>(api.getUser());
+
+  useEffect(() => {
+    api.onSessionExpired(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+    });
+    return () => api.onSessionExpired(null);
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const auth = await api.login(email, password);
