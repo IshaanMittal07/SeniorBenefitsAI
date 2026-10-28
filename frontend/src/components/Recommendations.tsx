@@ -52,6 +52,7 @@ const BenefitCard: React.FC<{ rec: Recommendation }> = ({ rec }) => (
       <div className="min-w-0">
         <p className="text-sm font-bold uppercase tracking-wide text-ink-muted">{rec.provider}</p>
         <h2 className="mt-1 text-2xl">{rec.benefit_name}</h2>
+        {rec.description && <p className="mt-2 text-ink-muted">{rec.description}</p>}
       </div>
       <MatchMeter score={rec.match_score} />
     </div>

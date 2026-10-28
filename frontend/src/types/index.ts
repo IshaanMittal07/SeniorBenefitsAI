@@ -32,6 +32,7 @@ export interface Recommendation {
   benefit_id: string;
   benefit_name: string;
   provider: string;
+  description?: string;
   match_score: number;
   eligibility_reasons: string[];
   application_url?: string;
