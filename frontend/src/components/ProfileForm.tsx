@@ -107,6 +107,8 @@ export const ProfileForm: React.FC = () => {
   const [formData, setFormData] = useState<ProfileFormState>(DEFAULT_FORM);
   const [hasProfile, setHasProfile] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -114,6 +116,8 @@ export const ProfileForm: React.FC = () => {
   // Load the saved profile so returning users can review and edit it
   useEffect(() => {
     let active = true;
+    setLoadingProfile(true);
+    setLoadFailed(false);
     api
       .getProfile()
       .then((profile) => {
@@ -129,9 +133,10 @@ export const ProfileForm: React.FC = () => {
         setHasProfile(true);
       })
       .catch((err) => {
-        // 404 just means this user hasn't created a profile yet
+        // 404 just means this user hasn't created a profile yet. Any other failure must block
+        // the form, otherwise saving would replace the real profile with these defaults.
         if (active && err.response?.status !== 404) {
-          setError('We couldn’t load your saved profile. You can still fill in the form below.');
+          setLoadFailed(true);
         }
       })
       .finally(() => {
@@ -140,7 +145,7 @@ export const ProfileForm: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -180,7 +185,8 @@ export const ProfileForm: React.FC = () => {
     const profile = {
       age: Number(formData.age),
       province: formData.province,
-      postal_code: postalCode ? formatPostalCode(postalCode) : undefined,
+      // An empty string (not undefined) so clearing a saved postal code actually removes it
+      postal_code: postalCode ? formatPostalCode(postalCode) : '',
       residency_status: formData.residency_status,
       income_range: formData.income_range,
       medical_conditions: formData.medical_conditions,
@@ -205,6 +211,19 @@ export const ProfileForm: React.FC = () => {
     return (
       <div className="container-page flex min-h-[50vh] items-center justify-center py-16">
         <Spinner label="Loading your profile…" />
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="container-page max-w-2xl py-14">
+        <Alert variant="error" title="We couldn’t load your profile">
+          Please check your connection and try again. Your saved answers have not been changed.
+        </Alert>
+        <button type="button" onClick={() => setLoadAttempt((n) => n + 1)} className="btn-primary mt-6">
+          Try again
+        </button>
       </div>
     );
   }
