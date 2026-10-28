@@ -1,4 +1,3 @@
-import { APIGatewayProxyHandler } from 'aws-lambda';
 import express from 'express';
 import serverless from 'serverless-http';
 import cors from 'cors';
@@ -31,4 +30,4 @@ app.use((req, res) => {
 });
 
 // Export Lambda handler
-export const handler: APIGatewayProxyHandler = serverless(app);
+export const handler = serverless(app);
