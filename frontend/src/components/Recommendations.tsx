@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { Recommendation, RecommendationResponse } from '../types';
 import { Alert } from './ui/Alert';
 import { PageHeader } from './ui/PageHeader';
 import { Spinner } from './ui/Spinner';
-import { CheckIcon, ExternalLinkIcon, PhoneIcon } from './ui/Icons';
+import { CheckIcon, ExternalLinkIcon, InfoIcon, PhoneIcon, PrinterIcon, SearchIcon, UserIcon } from './ui/Icons';
 
 const matchLevel = (score: number) => {
   if (score >= 80)
@@ -97,6 +97,8 @@ export const Recommendations: React.FC = () => {
   const [recommendations, setRecommendations] = useState<RecommendationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [missingProfile, setMissingProfile] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const fetchRecommendations = async () => {
@@ -104,7 +106,12 @@ export const Recommendations: React.FC = () => {
         const data = await api.getRecommendations();
         setRecommendations(data);
       } catch (err: any) {
-        setError(err.response?.data?.error || 'We couldn’t load your recommendations. Please try again.');
+        // The API returns 404 when the user hasn't created a profile yet
+        if (err.response?.status === 404) {
+          setMissingProfile(true);
+        } else {
+          setError(err.response?.data?.error || 'We couldn’t load your recommendations. Please try again.');
+        }
       } finally {
         setLoading(false);
       }
@@ -112,6 +119,15 @@ export const Recommendations: React.FC = () => {
 
     fetchRecommendations();
   }, []);
+
+  const filtered = useMemo(() => {
+    const items = recommendations?.recommendations || [];
+    const term = search.trim().toLowerCase();
+    if (!term) return items;
+    return items.filter((rec) =>
+      [rec.benefit_name, rec.provider, ...rec.eligibility_reasons].some((text) => text.toLowerCase().includes(term)),
+    );
+  }, [recommendations, search]);
 
   if (loading) {
     return (
@@ -121,7 +137,28 @@ export const Recommendations: React.FC = () => {
     );
   }
 
+  if (missingProfile) {
+    return (
+      <div className="container-page max-w-2xl py-14 sm:py-20">
+        <div className="card p-8 text-center sm:p-10">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+            <UserIcon size={30} />
+          </span>
+          <h1 className="mt-5 text-3xl">Let’s start with your profile</h1>
+          <p className="mx-auto mt-3 max-w-md text-lg text-ink-muted">
+            We need a few details, like your age and province, before we can find benefits for you. It takes about two
+            minutes.
+          </p>
+          <Link to="/profile" className="btn-primary mt-7 px-8 text-lg">
+            Create my profile
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const total = recommendations?.total_matches || 0;
+  const hasResults = total > 0;
 
   return (
     <div className="container-page max-w-4xl py-10 sm:py-14">
@@ -140,9 +177,17 @@ export const Recommendations: React.FC = () => {
           ) : undefined
         }
         actions={
-          <Link to="/profile" className="btn-secondary print:hidden">
-            Edit my profile
-          </Link>
+          <div className="flex flex-wrap gap-3 print:hidden">
+            {hasResults && (
+              <button type="button" onClick={() => window.print()} className="btn-ghost">
+                <PrinterIcon size={20} />
+                Print list
+              </button>
+            )}
+            <Link to="/profile" className="btn-secondary">
+              Edit my profile
+            </Link>
+          </div>
         }
       />
 
@@ -152,12 +197,59 @@ export const Recommendations: React.FC = () => {
         </Alert>
       )}
 
-      {recommendations && recommendations.recommendations.length > 0 ? (
-        <div className="space-y-5">
-          {recommendations.recommendations.map((rec) => (
-            <BenefitCard key={rec.benefit_id} rec={rec} />
-          ))}
-        </div>
+      {hasResults ? (
+        <>
+          <div className="mb-6 flex flex-col gap-4 print:hidden">
+            <div className="relative">
+              <label htmlFor="benefit-search" className="sr-only">
+                Search your results
+              </label>
+              <SearchIcon
+                size={22}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted"
+              />
+              <input
+                id="benefit-search"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by program or provider, e.g. pension, dental"
+                className="input pl-12"
+              />
+            </div>
+            <details className="rounded-xl border-2 border-brand-100 bg-brand-50/60 px-4 py-3">
+              <summary className="flex cursor-pointer items-center gap-2 font-bold text-brand-900">
+                <InfoIcon size={20} />
+                What does the match score mean?
+              </summary>
+              <p className="mt-2 text-ink-muted">
+                Every program listed meets the age, location, residency and income rules we know about. The score shows
+                how closely the program is aimed at someone in your situation: <strong>Strong match</strong> programs
+                target people like you specifically, while <strong>Worth checking</strong> programs are broader. The
+                provider makes the final decision, so always confirm before applying.
+              </p>
+            </details>
+          </div>
+
+          <p className="sr-only" aria-live="polite">
+            {search.trim() ? `${filtered.length} of ${total} programs match your search` : ''}
+          </p>
+
+          {filtered.length > 0 ? (
+            <div className="space-y-5">
+              {filtered.map((rec) => (
+                <BenefitCard key={rec.benefit_id} rec={rec} />
+              ))}
+            </div>
+          ) : (
+            <div className="card p-8 text-center">
+              <p className="text-lg">No programs match “{search.trim()}”.</p>
+              <button type="button" onClick={() => setSearch('')} className="btn-secondary mt-4">
+                Clear search
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         !error && (
           <div className="card p-8 text-center">
