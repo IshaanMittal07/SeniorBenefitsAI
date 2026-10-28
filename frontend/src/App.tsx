@@ -1,8 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import api from './services/api';
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { NotFound } from './pages/NotFound';
@@ -10,9 +9,16 @@ import { ProfileForm } from './components/ProfileForm';
 import { Recommendations } from './components/Recommendations';
 import { NaturalLanguageQuery } from './components/NaturalLanguageQuery';
 
+/**
+ * Sends signed-out visitors to the sign-in page, remembering where they were
+ * going so they can be returned there afterwards.
+ */
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  if (!api.isAuthenticated()) {
-    return <Login />;
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
   return <>{children}</>;
 };

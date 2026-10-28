@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Alert } from '../components/ui/Alert';
 import { EyeIcon, EyeOffIcon, HeartIcon } from '../components/ui/Icons';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, login, signup } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Only redirect visitors who were already signed in when they opened this page
+  const [alreadySignedIn] = useState(isAuthenticated);
+  const from = (location.state as { from?: string } | null)?.from;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,7 +33,8 @@ export const Login: React.FC = () => {
       } else {
         await login(email, password);
       }
-      navigate('/profile');
+      // New accounts fill in their profile first; returning users go where they were headed
+      navigate(isSignup ? '/profile' : from || '/recommendations', { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.error || 'We couldn’t sign you in. Please check your details and try again.');
     } finally {
@@ -37,8 +42,13 @@ export const Login: React.FC = () => {
     }
   };
 
+  if (alreadySignedIn) {
+    return <Navigate to={from || '/recommendations'} replace />;
+  }
+
   const toggleMode = () => {
-    setSearchParams(isSignup ? {} : { mode: 'signup' }, { replace: true });
+    // Keep location.state so the page the user was heading to isn't forgotten
+    setSearchParams(isSignup ? {} : { mode: 'signup' }, { replace: true, state: location.state });
     setError('');
   };
 
@@ -58,10 +68,16 @@ export const Login: React.FC = () => {
         </div>
 
         <div className="card p-6 sm:p-8">
-          {error && (
+          {error ? (
             <Alert variant="error" className="mb-6">
               {error}
             </Alert>
+          ) : (
+            from && (
+              <Alert variant="info" className="mb-6">
+                Please sign in to continue.
+              </Alert>
+            )
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
