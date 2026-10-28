@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { Alert } from '../components/ui/Alert';
+import { EyeIcon, EyeOffIcon, HeartIcon } from '../components/ui/Icons';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSignup, setIsSignup] = useState(false);
+  const [isSignup, setIsSignup] = useState(searchParams.get('mode') === 'signup');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
@@ -25,87 +29,134 @@ export const Login: React.FC = () => {
       }
       navigate('/profile');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Authentication failed');
+      setError(err.response?.data?.error || 'We couldn’t sign you in. Please check your details and try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleMode = () => {
+    setIsSignup((value) => !value);
+    setError('');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center px-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">Senior Benefits</h1>
-
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignup && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:bg-gray-400"
-          >
-            {loading ? 'Loading...' : isSignup ? 'Sign Up' : 'Login'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
-            {isSignup ? 'Already have an account?' : "Don't have an account?"}
-            <button
-              onClick={() => setIsSignup(!isSignup)}
-              className="text-blue-600 hover:text-blue-700 font-semibold ml-1"
-            >
-              {isSignup ? 'Login' : 'Sign Up'}
-            </button>
+    <div className="container-page flex justify-center py-12 sm:py-16">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-800 text-accent-400">
+            <HeartIcon size={30} />
+          </span>
+          <h1 className="mt-5 text-3xl">{isSignup ? 'Create your account' : 'Welcome back'}</h1>
+          <p className="mt-2 text-lg text-ink-muted">
+            {isSignup
+              ? 'It’s free and takes less than a minute.'
+              : 'Sign in to see the benefits you may qualify for.'}
           </p>
         </div>
+
+        <div className="card p-6 sm:p-8">
+          {error && (
+            <Alert variant="error" className="mb-6">
+              {error}
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {isSignup && (
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="firstName" className="label">
+                    First name
+                  </label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="lastName" className="label">
+                    Last name
+                  </label>
+                  <input
+                    id="lastName"
+                    type="text"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="input"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="email" className="label">
+                Email address
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="label">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete={isSignup ? 'new-password' : 'current-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={isSignup ? 8 : undefined}
+                  aria-describedby={isSignup ? 'password-hint' : undefined}
+                  className="input pr-24"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-1 right-1 flex items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-brand-800 hover:bg-brand-50"
+                >
+                  {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {isSignup && (
+                <p id="password-hint" className="hint">
+                  Use at least 8 characters.
+                </p>
+              )}
+            </div>
+
+            <button type="submit" disabled={loading} className="btn-primary w-full text-lg">
+              {loading ? 'Please wait…' : isSignup ? 'Create account' : 'Sign in'}
+            </button>
+          </form>
+        </div>
+
+        <p className="mt-6 text-center text-lg text-ink-muted">
+          {isSignup ? 'Already have an account?' : 'New here?'}{' '}
+          <button type="button" onClick={toggleMode} className="link">
+            {isSignup ? 'Sign in instead' : 'Create a free account'}
+          </button>
+        </p>
       </div>
     </div>
   );
